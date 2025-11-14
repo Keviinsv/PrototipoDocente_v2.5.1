@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}Registro{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5 mb-5">
+    <div class="col-md-8 col-lg-6">
+        <div class="card shadow-lg p-4">
+            <h2 class="card-title text-center mb-4">Registro de Docente</h2>
+            <form method="POST" action="{{ url_for('auth.register') }}" id="registerForm" novalidate>
+                
+                <div class="mb-3">
+                    <label for="numero_nomina" class="form-label">Número de Nómina</label>
+                    <input type="text" class="form-control" id="numero_nomina" name="numero_nomina" value="{{ request.form.numero_nomina }}" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="nombre" class="form-label">Nombre Completo</label>
+                    <input type="text" class="form-control" id="nombre" name="nombre" value="{{ request.form.nombre }}" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="campus" class="form-label">Campus</label>
+                    <select class="form-select" id="campus" name="campus" required>
+                        <option value="">Selecciona un Campus</option>
+                        <option value="Juchitán" ...>Juchitán</option>
+                        <option value="Ixtepec" ...>Ixtepec</option>
+                        <option value="Tehuantepec" ...>Tehuantepec</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="carrera_id" class="form-label">Carrera</label>
+                    <select class="form-select" id="carrera_id" name="carrera_id" required disabled>
+                        <option value="">Selecciona una Carrera</option>
+                    </select>
+                </div>
+                
+                <div id="carreras_data_store" style="display: none;">
+                    {% for carrera in all_carreras %}
+                    <option
+                        value="{{ carrera.id }}" 
+                        data-campus="{{ carrera.campus }}"
+                        data-selected-on-post="{% if request.form.carrera_id|string == carrera.id|string %}true{% else %}false{% endif %}"
+                    >
+                        {{ carrera.nombre }}
+                    </option>
+                    {% endfor %}
+                </div>
+
+                <div class="mb-3">
+                    <label for="email" class="form-label">Correo Electrónico</label>
+                    <input type="email" class="form-control" id="email" name="email" value="{{ request.form.email }}" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="password" class="form-label">Contraseña</label>
+                    <input type="password" class="form-control" id="password" name="password" required>
+                </div>
+
+                <div class="mb-3">
+                    <label for="confirm_password" class="form-label">Confirmar Contraseña</label>
+                    <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                    <div id="passwordHelp" class="form-text text-danger" style="display:none;">Las contraseñas no coinciden.</div>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100">Registrarse</button>
+            </form>
+            <p class="text-center mt-3">
+                ¿Ya tienes una cuenta? <a href="{{ url_for('auth.login') }}">Inicia Sesión aquí</a>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const campusSelect = document.getElementById('campus');
+        const carreraSelect = document.getElementById('carrera_id');
+        const passwordInput = document.getElementById('password');
+        const confirmPasswordInput = document.getElementById('confirm_password');
+        const passwordHelp = document.getElementById('passwordHelp');
+        const registerForm = document.getElementById('registerForm');
+        
+        // Obtener todas las opciones del contenedor de datos oculto
+        const todasLasCarreras = Array.from(document.getElementById('carreras_data_store').querySelectorAll('option'));
+
+        function filtrarCarreras() {
+            const campusSeleccionado = campusSelect.value;
+            
+            carreraSelect.innerHTML = '<option value="">Selecciona una Carrera</option>';
+            carreraSelect.disabled = true;
+            carreraSelect.required = false; // Deshabilitar la validación si no hay campus
+
+            if (campusSeleccionado) {
+                todasLasCarreras.forEach(carrera => {
+                    if (carrera.dataset.campus === campusSeleccionado) { 
+                        const nuevaOpcion = carrera.cloneNode(true);
+
+                        // 🚨 Lógica robusta para mantener la selección después de un POST fallido
+                        if (nuevaOpcion.dataset.selectedOnPost === "true") {
+                            nuevaOpcion.selected = true;
+                        }
+
+                        carreraSelect.appendChild(nuevaOpcion);
+                    }
+                });
+                
+                carreraSelect.disabled = false;
+                carreraSelect.required = true; // Habilitar la validación
+            }
+        }
+
+        function validarContrasenas() {
+            if (passwordInput.value !== confirmPasswordInput.value) {
+                passwordHelp.style.display = 'block';
+                confirmPasswordInput.setCustomValidity("Las contraseñas no coinciden");
+            } else {
+                passwordHelp.style.display = 'none';
+                confirmPasswordInput.setCustomValidity(''); 
+            }
+        }
+        
+        // Eventos
+        campusSelect.addEventListener('change', filtrarCarreras);
+        passwordInput.addEventListener('input', validarContrasenas);
+        confirmPasswordInput.addEventListener('input', validarContrasenas);
+
+        // Llamada inicial para poblar y preseleccionar al cargar
+        filtrarCarreras();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Archivos{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card shadow-lg p-4">
+                <h2 class="card-title text-center mb-4">Subir nuevo PDF y Clasificar</h2>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="materiaName" class="form-label">Materia (Escribe o selecciona)</label>
+                        <input class="form-control" list="materiaOptions" id="materiaName" name="materia" placeholder="Algoritmos, Base de Datos..." required>
+                        <datalist id="materiaOptions"></datalist>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label for="periodoSelect" class="form-label">Periodo (Ej. 2024-2025A)</label>
+                        <input class="form-control" list="periodoOptions" id="periodoSelect" name="periodo" pattern="\d{4}-\d{4}[AB]" placeholder="Escribe o selecciona el periodo" required>
+                        <datalist id="periodoOptions"></datalist>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="pdfFile" class="form-label">Selecciona un archivo PDF (.pdf)</label>
+                    <input type="file" class="form-control" id="pdfFile" accept=".pdf" required>
+                </div>
+                
+                <div class="d-grid gap-2">
+                    <button class="btn btn-primary" type="button" onclick="uploadPDF()">
+                        <i class="bi bi-cloud-arrow-up"></i> Subir y Clasificar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-5">
+        <div class="col-12">
+            <h2 class="text-center mb-4">Lista de Archivos Clasificados</h2>
+            
+            <div class="input-group mb-4">
+                <input type="text" class="form-control" id="searchBox" placeholder="Buscar por Nombre, Materia o Periodo..." oninput="loadFiles()">
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table table-striped table-hover align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Nombre de Archivo</th>
+                            <th>Curso (Materia / Periodo)</th>
+                            <th>Docente</th>
+                            <th>Fecha</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fileTable">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        loadFiles();
+        loadFormData(); // Carga las opciones de Materia/Periodo al iniciar
+    });
+
+    // 🚨 NUEVA FUNCIÓN: Carga materias y periodos existentes
+    function loadFormData() {
+        fetch("/files/data_for_upload")
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    console.error("Error al cargar datos de materias/periodos:", data.error);
+                    return;
+                }
+                
+                const materiaOptions = document.getElementById('materiaOptions');
+                const periodoOptions = document.getElementById('periodoOptions');
+
+                materiaOptions.innerHTML = '';
+                periodoOptions.innerHTML = '';
+
+                // Llenar el Datalist de Materias
+                data.materias.forEach(materia => {
+                    const option = document.createElement('option');
+                    option.value = materia.nombre;
+                    materiaOptions.appendChild(option);
+                });
+
+                // Llenar el Datalist de Periodos
+                data.periodos.forEach(periodo => {
+                    const option = document.createElement('option');
+                    option.value = periodo;
+                    periodoOptions.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error fetching form data:', error));
+    }
+
+    // Función para Cargar y (re)Cargar la lista de archivos
+    function loadFiles() {
+        const searchBox = document.getElementById('searchBox');
+        const search_query = searchBox ? searchBox.value : '';
+
+        // Llama a la API /files/list, que ahora devuelve un objeto con metadatos
+        fetch(`/files/list?search=${encodeURIComponent(search_query)}`)
+            .then(res => res.json())
+            .then(files => {
+                const tbody = document.getElementById('fileTable');
+                tbody.innerHTML = ''; 
+
+                files.forEach(fileData => {
+                    const row = document.createElement('tr');
+                    
+                    // 🚨 Se actualiza la fila para mostrar Materia, Periodo, Docente y Fecha
+                    row.innerHTML = `
+                        <td>${fileData.nombre}</td>
+                        <td>
+                            <strong>${fileData.materia}</strong> 
+                            <span class="badge bg-primary">${fileData.periodo}</span>
+                        </td>
+                        <td>${fileData.docente}</td>
+                        <td>${fileData.fecha_subida}</td>
+                        <td>
+                            <button class="btn btn-secondary btn-sm me-2" onclick="viewFile('${fileData.nombre}')">Ver</button>
+                            <button class="btn btn-info btn-sm me-2" onclick="downloadFile('${fileData.nombre}')">Descargar</button>
+                            <button class="btn btn-warning btn-sm me-2" onclick="renameFile('${fileData.nombre}')">Renombrar</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteFile('${fileData.nombre}')">Eliminar</button>
+                        </td>
+                    `;
+                    tbody.appendChild(row); 
+                });
+            });
+    }
+
+    // Función para Subir el PDF (Actualizada para enviar Materia y Periodo)
+    function uploadPDF() {
+        const fileInput = document.getElementById("pdfFile");
+        const materiaInput = document.getElementById("materiaName");
+        const periodoInput = document.getElementById("periodoSelect");
+        
+        const file = fileInput.files[0];
+        const materia = materiaInput.value;
+        const periodo = periodoInput.value;
+        
+        if (!file || !materia || !periodo) {
+            alert("Por favor, selecciona un archivo y completa los campos de Materia y Periodo.");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("materia", materia);
+        formData.append("periodo", periodo);
+
+        fetch("/files/upload", {
+            method: "POST",
+            body: formData
+        })
+        .then(res => res.text()) 
+        .then(message => {
+            alert(message);
+            fileInput.value = '';
+            materiaInput.value = ''; // Limpiar campos al finalizar
+            periodoInput.value = '';
+            loadFiles(); 
+            loadFormData(); // Recargar opciones por si se creó una Materia o Periodo nuevo
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert("Error al subir el archivo. Revisa la consola.");
+        });
+    }
+
+    function viewFile(name) {
+        window.open(`/files/view/${encodeURIComponent(name)}`, "_blank");
+    }
+
+    function downloadFile(name) {
+        window.open(`/files/downloads/${encodeURIComponent(name)}`, "_blank");
+    }
+
+    function deleteFile(name) {
+        if (!confirm(`¿Eliminar \"${name}\"?`)) return;
+        fetch(`/files/delete/${encodeURIComponent(name)}`, { method: "DELETE" })
+            .then(res => res.text())
+            .then(alert)
+            .then(loadFiles);
+    }
+    
+    function renameFile(oldName) {
+        const newName = prompt("Nuevo nombre (sin .pdf):", oldName.replace(".pdf", ""));
+        if (!newName) return;
+        
+        fetch("/files/rename", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ old_name: oldName, new_name: newName }) 
+        })
+        .then(res => res.text())
+        .then(alert)
+        .then(loadFiles);
+    }
+</script>
+{% endblock %}

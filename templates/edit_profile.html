@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Perfil{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-8 col-lg-6">
+        <div class="card shadow-lg p-4">
+            <h2 class="card-title text-center mb-4">Editar Perfil</h2>
+            <form method="POST" action="{{ url_for('auth.edit_profile') }}" id="editProfileForm" novalidate>
+                
+                <div class="mb-3">
+                    <label for="numero_nomina" class="form-label">Número de Nómina</label>
+                    <input type="text" class="form-control" id="numero_nomina" name="numero_nomina" value="{{ docente.numero_nomina }}" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="nombre" class="form-label">Nombre Completo</label>
+                    <input type="text" class="form-control" id="nombre" name="nombre" value="{{ docente.nombre }}" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="campus" class="form-label">Campus</label>
+                    <select class="form-select" id="campus" name="campus" required>
+                        <option value="">Selecciona un Campus</option>
+                        <option value="Ixtepec" {% if docente.campus == "Ixtepec" %}selected{% endif %}>Ixtepec</option>
+                        <option value="Tehuantepec" {% if docente.campus == "Tehuantepec" %}selected{% endif %}>Tehuantepec</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label for="carrera_id" class="form-label">Carrera</label>
+                    <select class="form-select" id="carrera_id" name="carrera_id" required disabled>
+                        <option value="">Selecciona una Carrera</option>
+                    </select>
+                </div>
+
+                <div id="carreras_data_store" style="display: none;">
+                    {% for carrera in all_carreras %}
+                    <option
+                        value="{{ carrera.id }}" 
+                        data-campus="{{ carrera.campus }}"
+                        data-current-user-selection="{% if docente.carrera_id == carrera.id %}true{% else %}false{% endif %}"
+                    >
+                        {{ carrera.nombre }}
+                    </option>
+                    {% endfor %}
+                </div>
+                
+                <div class="mb-3">
+                    <label for="email" class="form-label">Correo Electrónico</label>
+                    <input type="email" class="form-control" id="email" name="email" value="{{ docente.email }}" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="password" class="form-label">Nueva Contraseña (Dejar vacío para no cambiar)</label>
+                    <input type="password" class="form-control" id="password" name="password">
+                </div>
+
+                <div class="mb-3">
+                    <label for="confirm_password" class="form-label">Confirmar Nueva Contraseña</label>
+                    <input type="password" class="form-control" id="confirm_password" name="confirm_password">
+                    <div id="passwordHelp" class="form-text text-danger" style="display:none;">Las contraseñas no coinciden.</div>
+                </div>
+
+                <button type="submit" class="btn btn-warning w-100">Actualizar Perfil</button>
+            </form>
+
+            <form method="POST" action="{{ url_for('auth.delete_account') }}" onsubmit="return confirm('¿Estás seguro de que quieres eliminar tu cuenta? Esta acción es irreversible.');" class="mt-3">
+                <button type="submit" class="btn btn-danger w-100">Eliminar Cuenta</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const campusSelect = document.getElementById('campus');
+        const carreraSelect = document.getElementById('carrera_id');
+        const passwordInput = document.getElementById('password');
+        const confirmPasswordInput = document.getElementById('confirm_password');
+        const passwordHelp = document.getElementById('passwordHelp');
+        const editProfileForm = document.getElementById('editProfileForm');
+        
+        // Obtener todas las opciones del contenedor de datos oculto
+        const todasLasCarreras = Array.from(document.getElementById('carreras_data_store').querySelectorAll('option'));
+
+        function filtrarCarreras() {
+            const campusSeleccionado = campusSelect.value;
+            
+            carreraSelect.innerHTML = '<option value="">Selecciona una Carrera</option>';
+            carreraSelect.disabled = true;
+            carreraSelect.required = false;
+
+            if (campusSeleccionado) {
+                todasLasCarreras.forEach(carrera => {
+                    if (carrera.dataset.campus === campusSeleccionado) { 
+                        const nuevaOpcion = carrera.cloneNode(true);
+                        
+                        // 🚨 Lógica robusta para mantener la selección del perfil del docente
+                        if (nuevaOpcion.dataset.currentUserSelection === "true") {
+                            nuevaOpcion.selected = true;
+                        }
+
+                        carreraSelect.appendChild(nuevaOpcion);
+                    }
+                });
+                
+                carreraSelect.disabled = false;
+                carreraSelect.required = true;
+            }
+        }
+
+        function validarContrasenas() {
+            // 🚨 ROBUSTEZ: Solo validar si se intenta cambiar la contraseña
+            if (passwordInput.value || confirmPasswordInput.value) {
+                if (passwordInput.value !== confirmPasswordInput.value) {
+                    passwordHelp.style.display = 'block';
+                    // Esto activa la validación nativa del navegador
+                    confirmPasswordInput.setCustomValidity("Las contraseñas no coinciden"); 
+                } else {
+                    passwordHelp.style.display = 'none';
+                    confirmPasswordInput.setCustomValidity(''); 
+                }
+            } else {
+                // Si ambos están vacíos, no hay error de validación
+                passwordHelp.style.display = 'none';
+                confirmPasswordInput.setCustomValidity(''); 
+            }
+        }
+        
+        // Inicializar el filtro y asegurar la selección al cargar
+        filtrarCarreras();
+
+        // Eventos
+        campusSelect.addEventListener('change', filtrarCarreras);
+        passwordInput.addEventListener('input', validarContrasenas);
+        confirmPasswordInput.addEventListener('input', validarContrasenas);
+    });
+</script>
+{% endblock %}
